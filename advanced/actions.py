@@ -5,10 +5,11 @@ import random
 from os.path import join, exists
 from time import sleep, time
 from typing import Literal, Optional
-from ..ui.seletores import Selectors
+from ..ui.seletores import Selectors, Element
 from ..chrome_driver.driver import Driver
 from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.remote.webelement import WebElement
+from warnings import deprecated
 
 class Actions:
     _wpp_started: bool = False
@@ -130,6 +131,7 @@ class Actions:
         else:
             raise Exception("Área de busca não encontrada.")
 
+    @deprecated("Use exit_chat_from_search() em vez disso.")
     def cancel_safe_search(self, max_attempts: int = 3) -> None:
         """
         Cancela a busca segura caso esteja ativa, clicando no botão de cancelar.
@@ -190,28 +192,33 @@ class Actions:
             return False
         sleep(random.randint(1, 3))
         return True
+    
+    def _exit_chat(self, from_element: Element):
+        """
+        Sai do chat atual pressionando ESC no elemento especificado.
+        """
+        element = self.webdriver.await_element(element=from_element, wait=False)
+        if not isinstance(element, WebElement):
+            return
+        self.logger.info('Saindo do chat...')
+        element.send_keys(Keys.ESCAPE)
+        sleep(random.randint(1, 3))
 
     def exit_chat_from_message_box(self):
         """
         Sai do chat atual pressionando ESC no campo de mensagem.
         """
-        message_box = self.webdriver.await_element(element=Selectors.MESSAGE_BOX, wait=False)
-        if not isinstance(message_box, WebElement):
-            return
-        self.logger.info('Saindo do chat...')
-        message_box.send_keys(Keys.ESCAPE)
-        sleep(random.randint(1, 3))
+        self._exit_chat(Selectors.MESSAGE_BOX)
 
     def exit_chat_from_search(self):
         """
         Sai do chat alternativo pressionando ESC no campo de busca.
         """
-        search = self.webdriver.await_element(element=Selectors.SEARCH, wait=False)
-        if not isinstance(search, WebElement):
-            return
-        self.logger.info('Saindo do chat alternativo...')
-        search.send_keys(Keys.ESCAPE)
-        sleep(random.randint(1, 3))
+        if self._safe_search:
+            self._exit_chat(Selectors.SAFE_SEARCH)
+            self._safe_search = False
+        else:
+            self._exit_chat(Selectors.SEARCH)
 
     def _input_buttons(self) -> None:
         """
