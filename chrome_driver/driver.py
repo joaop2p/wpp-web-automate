@@ -12,19 +12,21 @@ from ..ui.element import Element as UIElement
 class Driver:
     _driver: Chrome
     _printOptions: PrintOptions  
-
-    def __version_(self) -> Literal['1.5']:
-        return "1.5"
+    __version__ = "1.5"
+    _started: bool = False
 
     def __str__(self) -> str:
-        return f"WebDriver Chrome {self.__version_()}"
-    
-    def __init__(self, config) -> None:
-        self.config = config
+        return f"WebDriver Chrome {self.__version__}"
+
+    def __init__(self) -> None:
         self.logger = logging.getLogger(self.__str__())
 
-    def start(self):
-        self._start(self.config.app.headless_mode)
+    def is_started(self) -> bool:
+        return self._started
+
+    def start(self, driver_path: str, headless: bool = False) -> None:
+        self._start(headless, driver_path)
+        self._started = True
         self.logger.info("Driver inicializado com sucesso.")
 
     def _setOptionsPrint(self) -> PrintOptions:
@@ -41,9 +43,9 @@ class Driver:
             option.add_argument(arg)
         return option
 
-    def _start(self, headless: bool) -> None:
+    def _start(self, headless: bool, driver_path: str) -> None:
         options = self._setOptionsDriver(
-                f"--user-data-dir={self.config.path.cache}"
+                f"--user-data-dir={driver_path}"
             )
         if headless:
             options.add_argument("--headless")

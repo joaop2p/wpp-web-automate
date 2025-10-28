@@ -12,18 +12,46 @@ from selenium.webdriver.remote.webelement import WebElement
 
 class Actions:
     _wpp_started: bool = False
+    webdriver: Driver
+    _config: dict = {
+        "path": {
+            "repository": "repository",
+            "cache": "cache"
+        },
+        "driver": {
+            "headless": False,
+            "driver_path": "./cache"
+        }
+    }
 
-    def __init__(self, config) -> None:
-        self.config = config
-        self.webdriver = Driver(self.config)
+    def __init__(self) -> None:
         self._safe_search = False
+        self.webdriver = Driver()
         self.logger = logging.getLogger(self.__str__())
 
     def __str__(self) -> str:
         """Retorna o nome da classe para fins de logging."""
         return "Action Automate"
+    
+    @property
+    def wpp_started(self) -> bool:
+        """Verifica se o WhatsApp Web foi iniciado."""
+        return self._wpp_started
 
-    def entregue(self) -> bool:
+    def set_driver_config(self, headless: bool = False, driver_path: str = "./cache") -> None:
+        """Configurações do driver."""
+        self.logger.info('Configurando driver: headless=%s, driver_path=%s', headless, driver_path)
+        self._config['driver']['headless'] = headless
+        self._config['driver']['driver_path'] = driver_path
+
+    def set_path_config(self, repository: str = "repository") -> None:
+        """Configurações de caminhos."""
+        self._config['path']['repository'] = repository
+    
+    def start_driver(self) -> None:
+        self.webdriver.start(**self._config["driver"])
+
+    def delivered(self) -> bool:
         """
         Verifica se a última mensagem foi entregue para o contato.
         Retorna True se entregue, False caso contrário.
@@ -34,32 +62,60 @@ class Actions:
             return self.webdriver.await_element(element=Selectors.CHECK, area=final_message, wait=False) is not None
         return False
     
+    def send_survey(self, options: list[str]) -> None:
+        self._input_buttons()
+        sleep(1)
+        vote_menu_button = self.webdriver.await_element(element=Selectors.MENU_ITEM)
+        if not isinstance(vote_menu_button, WebElement):
+            return
+        vote_menu_button.click()
+        sleep(1)
+        fields = self.webdriver.await_element(element=Selectors.FIELDS, multiples=True)
+        if not isinstance(fields, list):
+            return
+        for index, field in enumerate(fields):
+            x = field.find_element(Selectors.INPUT_FIELDS_ENQUETE.getSelector, Selectors.INPUT_FIELDS_ENQUETE.getElement)
+            x.send_keys(options[index])
+            sleep(1)
+        button = self.webdriver.await_element(element=Selectors.SWITCH)
+        if not isinstance(button, WebElement):
+            return
+        button.click()
+        button_send = self.webdriver.await_element(element=Selectors.SEND_BUTTON_ENQUETE)
+        if not isinstance(button_send, WebElement):
+            return
+        button_send.click()
+        sleep(random.randint(1, 3))
+    
     def start_whatsapp(self) -> None:
         """
         Abre o WhatsApp Web no navegador controlado pelo WebDriver.
         Aguarda até 5 minutos para o WhatsApp carregar completamente.
         Se o usuário não estiver logado, aguarda até 2 minutos para login.
         """
+        if not self.webdriver.is_started():
+            self.start_driver()
         self.webdriver.getDriver().get("https://web.whatsapp.com/")
         start_time = time()
         while not self.webdriver.find_element(Selectors.LOGGED_FLAG):
+            self.logger.info('Aguardando carregamento do WhatsApp Web...')
             if time() - start_time > 300:
                 raise Exception('Timeout ao inicializar o WhatsApp Web. Verifique sua conexão.')
             elif self.webdriver.find_element(Selectors.NO_LOGGED_FLAG):
                 self.logger.info('Aguardando login...')
                 login_start = time()
                 # Aguarda até 120 segundos para o usuário fazer login
-                while time() - login_start < 120:
+                while time() - login_start < 500:
                     if self.webdriver.find_element(Selectors.LOGGED_FLAG):
                         self._wpp_started = True
                         self.logger.info('WhatsApp inicializado com sucesso.')
                         return
-                    raise Exception("Usuário não está logado no WhatsApp Web.")          
+                raise Exception("Usuário não está logado no WhatsApp Web.")          
             sleep(1)
         self._wpp_started = True
         self.logger.info('WhatsApp inicializado com sucesso.')
 
-    def safe_search(self, number: int) -> None:
+    def safe_search(self, number: int, enter: bool = True) -> None:
         """
         Realiza uma busca segura pelo número informado, utilizando o campo de busca do WhatsApp Web.
         """
@@ -67,7 +123,8 @@ class Actions:
         search_area = self.webdriver.await_element(Selectors.SAFE_SEARCH)
         if isinstance(search_area, WebElement):
             search_area.send_keys(str(number))
-            search_area.send_keys(Keys.ENTER)
+            if enter:
+                search_area.send_keys(Keys.ENTER)
             self._safe_search = True
             sleep(random.randint(3, 5))
         else:
@@ -129,12 +186,12 @@ class Actions:
         message_box = self.webdriver.await_element(element=Selectors.MESSAGE_BOX, wait=False)
         if message_box is None or warnning is not None:
             self.logger.error('Número não encontrado: %d', number)
-            self.exit_chat2()
+            self.exit_chat_from_search()
             return False
         sleep(random.randint(1, 3))
         return True
 
-    def exit_chat(self):
+    def exit_chat_from_message_box(self):
         """
         Sai do chat atual pressionando ESC no campo de mensagem.
         """
@@ -145,7 +202,7 @@ class Actions:
         message_box.send_keys(Keys.ESCAPE)
         sleep(random.randint(1, 3))
 
-    def exit_chat2(self):
+    def exit_chat_from_search(self):
         """
         Sai do chat alternativo pressionando ESC no campo de busca.
         """
@@ -229,7 +286,7 @@ class Actions:
         main = self.webdriver.await_element(element=Selectors.MAIN_AREA)
         if not isinstance(main, WebElement):
             return
-        if main.screenshot(join(self.config.path.repository, f'{name}.png')):
+        if main.screenshot(join(self._config['path']['repository'], f'{name}.png')):
             self.logger.info('Screenshot tirado com sucesso: %s', name)
         else:
             self.logger.error('Falha ao tirar screenshot.')
@@ -239,11 +296,11 @@ class Actions:
         Imprime a página atual do WhatsApp Web em PDF.
         Tenta até 3 vezes em caso de erro.
         """
-        if not exists(self.config.path.repository):
-            makedirs(self.config.path.repository)
+        if not exists(self._config['path']['repository']):
+            makedirs(self._config['path']['repository'])
         pdf = self.webdriver.getDriver().print_page(self.webdriver.getPrintOptions())
         pdf_decode = base64.b64decode(pdf)
-        with open(join(self.config.path.repository, f'{name}.pdf'), "wb") as file:
+        with open(join(self._config['path']['repository'], f'{name}.pdf'), "wb") as file:
             try:
                 file.write(pdf_decode)
                 self.logger.info('Página impressa com sucesso: %s', name)
