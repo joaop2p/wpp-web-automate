@@ -18,8 +18,9 @@ class Driver:
     def __str__(self) -> str:
         return f"WebDriver Chrome {self.__version__}"
 
-    def __init__(self) -> None:
+    def __init__(self, driver_path: str, headless: bool = False) -> None:
         self.logger = logging.getLogger(self.__str__())
+        self._start(driver_path=driver_path, headless=headless)
 
     def is_started(self) -> bool:
         return self._started
@@ -44,12 +45,21 @@ class Driver:
         return option
 
     def _start(self, headless: bool, driver_path: str) -> None:
+        self._started = True
         options = self._setOptionsDriver(
                 f"--user-data-dir={driver_path}"
             )
         if headless:
             options.add_argument("--headless")
         self._driver = Chrome(options=options)
+        if self._driver is None:
+            self._started = False
+            raise Exception("Falha ao iniciar o WebDriver.")
+        if len(self._driver.window_handles) != 1:
+            for handle in self._driver.window_handles[1:]:
+                self._driver.switch_to.window(handle)
+                self._driver.close()
+            self._driver.switch_to.window(self._driver.window_handles[0])
         self._printOptions = self._setOptionsPrint()
         
     def getPrintOptions(self) -> PrintOptions:
@@ -71,8 +81,9 @@ class Driver:
             if not wait and time() - start >= 10:
                 break
         return element_obj
-        
-    def getDriver(self) -> Chrome:
+    
+    @property
+    def driver(self):
         return self._driver
 
     def kill(self) -> None:
