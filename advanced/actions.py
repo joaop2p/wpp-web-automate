@@ -96,7 +96,7 @@ class Actions:
         """
         if not self.webdriver.is_started():
             self.start_driver()
-        self.webdriver.getDriver().get("https://web.whatsapp.com/")
+        self.webdriver.driver.get("https://web.whatsapp.com/")
         start_time = time()
         while not self.webdriver.find_element(Selectors.LOGGED_FLAG):
             self.logger.info('Aguardando carregamento do WhatsApp Web...')
@@ -305,7 +305,7 @@ class Actions:
         """
         if not exists(self._config['path']['repository']):
             makedirs(self._config['path']['repository'])
-        pdf = self.webdriver.getDriver().print_page(self.webdriver.getPrintOptions())
+        pdf = self.webdriver.driver.print_page(self.webdriver.getPrintOptions())
         pdf_decode = base64.b64decode(pdf)
         with open(join(self._config['path']['repository'], f'{name}.pdf'), "wb") as file:
             try:
