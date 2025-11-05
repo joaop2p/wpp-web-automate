@@ -6,6 +6,15 @@ from dataclasses import dataclass
 class Element:
     """
     Representa um elemento da interface do usuário com seu seletor e tipo de elemento.
+    
+    Attributes:
+        selector: Estratégia de localização (CSS_SELECTOR, XPATH, etc.)
+        element: String do seletor para localizar o elemento
+        
+    Example:
+        >>> btn = Element(By.CSS_SELECTOR, "button[type='submit']")
+        >>> print(btn.getSelector)
+        'css selector'
     """
     selector: str
     element: str
