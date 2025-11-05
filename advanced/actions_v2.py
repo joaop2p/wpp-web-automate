@@ -2,10 +2,10 @@ import base64
 import logging
 from os import makedirs
 import random
-from os.path import join, exists
+from os.path import join, exists, realpath
 from time import sleep, time
 from typing import Literal, Optional
-from warnings import deprecated
+import warnings
 
 from ..ui.seletores import Selectors, Element
 from ..chrome_driver.driver import Driver
@@ -96,26 +96,47 @@ class Actions:
         max_val = max_seconds or self.DEFAULT_MAX_DELAY
         sleep(random.randint(min_val, max_val))
 
-    @deprecated("Passe uma instância de ActionsConfig na inicialização do objeto em vez disso.")
     def set_driver_config(self, headless: bool = False, driver_path: str = "./cache") -> None:
         """
-        Define configurações do WebDriver.
+        Define configurações do WebDriver (DEPRECATED).
         
         Args:
             headless: Se True, executa o navegador em modo headless
             driver_path: Caminho onde o driver será armazenado
+            
+        Deprecated:
+            Use ActionsConfig na inicialização em vez disso.
+            
+        Example:
+            >>> config = ActionsConfig(headless=True)
+            >>> action = Actions(config=config)
         """
-        return
+        warnings.warn(
+            "set_driver_config() está obsoleto. "
+            "Use ActionsConfig na inicialização do objeto em vez disso.",
+            DeprecationWarning,
+            stacklevel=2
+        )
+        self._config.headless = headless
+        self._config.driver_path = driver_path
 
-    @deprecated("Passe uma instância de ActionsConfig na inicialização do objeto em vez disso.")
     def set_path_config(self, repository: str = "repository") -> None:
         """
-        Define configurações de caminhos para arquivos.
+        Define configurações de caminhos para arquivos (DEPRECATED).
         
         Args:
             repository: Diretório onde screenshots e PDFs serão salvos
+            
+        Deprecated:
+            Use ActionsConfig na inicialização em vez disso.
         """
-        return
+        warnings.warn(
+            "set_path_config() está obsoleto. "
+            "Use ActionsConfig na inicialização do objeto em vez disso.",
+            DeprecationWarning,
+            stacklevel=2
+        )
+        self._config.repository_path = repository
     
     def start_driver(self) -> None:
         """Inicia o WebDriver com as configurações definidas."""
@@ -267,14 +288,21 @@ class Actions:
         self._safe_search = True
         self._random_delay(3, 5)
 
-    @deprecated("Use exit_chat_from_search() em vez disso.")
     def cancel_safe_search(self, max_attempts: int = 3) -> None:
         """
-        Cancela a busca segura caso esteja ativa, clicando no botão de cancelar.
+        Cancela a busca segura caso esteja ativa, clicando no botão de cancelar (DEPRECATED).
         
         Args:
             max_attempts: Número máximo de tentativas (padrão: 3)
+            
+        Deprecated:
+            Use close_chat() em vez disso.
         """
+        warnings.warn(
+            "cancel_safe_search() está obsoleto. Use close_chat() em vez disso.",
+            DeprecationWarning,
+            stacklevel=2
+        )
         if not self._safe_search:
             self.logger.debug('Busca segura não está ativa, nada a cancelar.')
             return
@@ -365,29 +393,13 @@ class Actions:
         element.send_keys(Keys.ESCAPE)
         self._random_delay()
 
-    def exit_chat_from_message_box(self) -> None:
-        """
-        Sai do chat atual pressionando ESC no campo de mensagem.
-        
-        Raises:
-            WhatsAppNotStartedException: Se o WhatsApp não foi iniciado
-        """
-        self._ensure_whatsapp_started()
-        self._exit_chat(Selectors.MESSAGE_BOX)
-
-    def exit_chat_from_search(self) -> None:
-        """
-        Sai do chat alternativo pressionando ESC no campo de busca.
-        
-        Raises:
-            WhatsAppNotStartedException: Se o WhatsApp não foi iniciado
-        """
+    def close_chat(self) -> None:
         self._ensure_whatsapp_started()
         if self._safe_search:
             self._exit_chat(Selectors.SAFE_SEARCH)
             self._safe_search = False
         else:
-            self._exit_chat(Selectors.SEARCH)
+            self._exit_chat(Selectors.MESSAGE_BOX)
 
     def _input_buttons(self) -> None:
         """
@@ -468,12 +480,12 @@ class Actions:
             Exception: Se falhar ao enviar
         """
         self._ensure_whatsapp_started()
-        
         if not exists(file_path):
             raise FileNotFoundError(f"Arquivo não encontrado: {file_path}")
         
-        self.logger.info('Enviando arquivo: %s (modo: %s)', file_path, mode)
-        
+        path = realpath(file_path)
+        self.logger.info('Enviando arquivo: %s (modo: %s)', path, mode)
+
         self._input_buttons()
         
         # Seleciona o input correto baseado no modo
@@ -488,7 +500,7 @@ class Actions:
         if not isinstance(file_input, WebElement):
             raise NoElementFoundException("Input de arquivo não encontrado.")
         
-        file_input.send_keys(file_path)
+        file_input.send_keys(path)
         
         send_button = self.webdriver.await_element(element=Selectors.SEND_BUTTON, wait=False)
         if not isinstance(send_button, WebElement):
@@ -583,10 +595,52 @@ class Actions:
 
     # Experimental
     def __enter__(self) -> 'Actions':
-        """Habilita o uso do gerenciador de contexto."""
-        self.start_whatsapp()
+        """
+        Habilita o uso do gerenciador de contexto (with statement).
+        
+        Inicia o WebDriver automaticamente. Se auto_start=True na config,
+        também inicia o WhatsApp Web automaticamente.
+        
+        Returns:
+            Instância da classe Actions
+            
+        Example:
+            >>> config = ActionsConfig(auto_start=True)
+            >>> with Actions(config=config) as action:
+            ...     # WhatsApp já iniciado automaticamente
+            ...     action.send_message("Mensagem automática!")
+        """
+        if self.webdriver is None:
+            self.start_driver()
+            self.logger.info('WebDriver iniciado via context manager.')
+        
+        if self._config.auto_start and not self._wpp_started:
+            self.logger.info('Auto-start habilitado, iniciando WhatsApp Web...')
+            self.start_whatsapp()
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb) -> None:
-        """Desabilita o uso do gerenciador de contexto."""
-        self.stop()
+        """
+        Finaliza o gerenciador de contexto e limpa recursos da API PyZapp.
+        
+        Args:
+            exc_type: Tipo da exceção (se ocorreu)
+            exc_val: Valor da exceção (se ocorreu)
+            exc_tb: Traceback da exceção (se ocorreu)
+        """
+        try:
+            if exc_type is not None:
+                self.logger.error(
+                    'Exceção capturada no context manager: %s - %s', 
+                    exc_type.__name__, 
+                    str(exc_val)
+                )
+            
+            if self.webdriver is not None:
+                self.logger.info('Finalizando WebDriver via context manager.')
+                self.stop()
+            else:
+                self.logger.debug('WebDriver já estava finalizado.')
+                
+        except Exception as e:
+            self.logger.error('Erro ao finalizar context manager: %s', str(e))
