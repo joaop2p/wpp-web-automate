@@ -2,24 +2,30 @@ from .element import Element
 from selenium.webdriver.common.by import By
 
 class Selectors:
+    """Seletores CSS/XPath para elementos do WhatsApp Web."""
+    
+    # Navegação e busca
     NEW_CHAT = Element(By.CSS_SELECTOR, "[data-icon='new-chat-outline']")
     SEARCH = Element(By.CSS_SELECTOR, 'div[aria-label="Pesquisar nome ou número"]')
+    SAFE_SEARCH = Element(By.CSS_SELECTOR, "div[aria-label='Caixa de texto de pesquisa']")
+    CANCEL_SAFE_SEARCH = Element(By.CSS_SELECTOR, 'button[aria-label="Cancelar pesquisa"]')
+    BACK = Element(By.CSS_SELECTOR, "span[data-icon='back']")
+    
+    # Área de mensagens
+    MESSAGE_BOX = Element(By.CSS_SELECTOR, "div[aria-placeholder='Digite uma mensagem']")
+    MESSAGES_AREA = Element(By.CSS_SELECTOR, 'div[class*="_amkz message-out focusable-list-item _amjy _amjz _amjw"]')
+    CHECK = Element(By.CSS_SELECTOR, 'span[aria-label=" Entregue "]')
+    MAIN_AREA = Element(By.CSS_SELECTOR, "div[id='main']")
+    
+    # Anexos e envio de arquivos
     ATTACHMENTS = Element(By.CSS_SELECTOR, "span[data-icon='plus-rounded']")
     FILE_INPUT_ALL = Element(By.CSS_SELECTOR, "input[type='file'][accept='*']")
     FILE_INPUT_VIDEO = Element(By.CSS_SELECTOR, "input[type='file'][accept='image/*,video/mp4,video/3gpp,video/quicktime']")
     FILE_INPUT_IMAGE = Element(By.CSS_SELECTOR, "input[type='file'][accept='image/*']")
     SEND_BUTTON = Element(By.CSS_SELECTOR, "[data-icon='send']")
     SEND_BUTTON2 = Element(By.CSS_SELECTOR, "[data-icon='wds-ic-send-filled']")
-    MESSAGE_BOX = Element(By.CSS_SELECTOR, "div[aria-placeholder='Digite uma mensagem']")
-    MESSAGES_AREA = Element(By.CSS_SELECTOR, 'div[class*="_amkz message-out focusable-list-item _amjy _amjz _amjw"]')
-    CHECK = Element(By.CSS_SELECTOR, 'span[aria-label=" Entregue "]')
-    BACK = Element(By.CSS_SELECTOR, "span[data-icon='back']")
-    MAIN_AREA = Element(By.CSS_SELECTOR, "div[id='main']")
-    SAFE_SEARCH = Element(By.CSS_SELECTOR, "div[aria-label='Caixa de texto de pesquisa']")
-    CANCEL_SAFE_SEARCH = Element(By.CSS_SELECTOR, 'button[aria-label="Cancelar pesquisa"]')
-    NOT_HAS_CHAT = Element(By.XPATH, "//div[contains(text(),'Nenhum resultado encontrado para')]")
-    NO_LOGGED_FLAG = Element(By.XPATH, "//div[contains(text(), 'Etapas para acessar')]")
-    LOGGED_FLAG = Element(By.XPATH, "//h1[contains(text(), 'WhatsApp Business Web') or contains(text(), 'Baixar o WhatsApp para Windows')]")
+    
+    # Enquetes
     MENU_CONTAINER = Element(By.CSS_SELECTOR, "div[role='application']")
     MENU_LIST = Element(By.XPATH, "ul/div/div")
     MENU_ITEM = Element(By.XPATH, "//span[contains(text(), 'Enquete')]")
@@ -27,3 +33,8 @@ class Selectors:
     SWITCH = Element(By.CSS_SELECTOR, "input[role='switch']")
     SEND_BUTTON_ENQUETE = Element(By.CSS_SELECTOR, "div[aria-label='Enviar']")
     INPUT_FIELDS_ENQUETE = Element(By.CSS_SELECTOR, "p")
+    
+    # Estados e flags
+    NOT_HAS_CHAT = Element(By.XPATH, "//div[contains(text(),'Nenhum resultado encontrado para')]")
+    NO_LOGGED_FLAG = Element(By.XPATH, "//div[contains(text(), 'Etapas para acessar')]")
+    LOGGED_FLAG = Element(By.XPATH, "//h1[contains(text(), 'WhatsApp Business Web') or contains(text(), 'Baixar o WhatsApp para Windows')]")
